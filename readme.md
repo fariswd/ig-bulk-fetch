@@ -1,9 +1,14 @@
 # Instagram Bulk Fetch
 xD
 
-## Please check:
+## Use
+USERNAME_INSTAGRAM = String  
+CONTINUE = Bool  
+
 ```
-result.json
+git clone
+npm install
+node index.js <USERNAME_INSTAGRAM> <Optional: CONTINUE>
 ```
 
 fariswd  

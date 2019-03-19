@@ -4,11 +4,13 @@ const fs = require('fs')
 
 const url = 'https://gramsave.com/'
 const nextUrl = 'https://gramsave.com/media'
-let count = 1
+const WHO_TO_FETCH = process.argv[2]
+const CONTINUE = process.argv[3] == 'true'
+let count = 0
 
 const requestBody = qs.stringify({
     '__RequestVerificationToken':'aRT5MPWuSOcqobfbWGdK5X5p3FnU9aMOHoZ2834LNQasZCVRoywsidKqz9Ai3wZv58oOAcum2MxecHKF0EwCGjAxE1_ENKYpWQHBV3yGMzU1',
-    'Item1.instagram_url': 'https://www.instagram.com/kimi.hime/',
+    'Item1.instagram_url': `https://www.instagram.com/${WHO_TO_FETCH}/`,
     'X-Requested-With': 'XMLHttpRequest'
 })
 
@@ -21,33 +23,38 @@ const config = {
 }
 
 const writeFile = async (result, next) => {
-    fs.readFile('result.json', 'utf8', (err, data) =>  {
+    fs.readFile(`result_${WHO_TO_FETCH}.json`, 'utf8', (err, data) =>  {
         if(err) {
             console.log('error read')
             throw err
         };
 
         let read = JSON.parse(data)
-        if(read.media) {
+        if(read.media && count > 1) {
+            read.next_page = result.next_page
             read.media = [...read.media, ...result.media]
+            read.has_next_page = result.has_next_page
+            read.Status = count
         } else {
             read = result
         }
 
         const write = JSON.stringify(read)
-        fs.writeFile('result.json', write, 'utf8', (err) => {
+        fs.writeFile(`result_${WHO_TO_FETCH}.json`, write, 'utf8', (err) => {
             if (err) {
                 console.log('error write')
                 throw err
             };
             console.log('The file has been saved!', read.media.length);
 
-            if(result.has_next_page) {
+            if(read.count > read.media.length && result.has_next_page) {
                 next({
                     page: result.next_page,
                     userid: result.userid,
                     username: result.username
                 })
+            } else {
+                console.log(`Success fetch ${result.username}. Count media: ${read.media.length}`)
             }
 
         }); 
@@ -58,12 +65,27 @@ const writeFile = async (result, next) => {
 }
 
 const main = async () => {
-    try {
-        const result = await axios.post(url, requestBody, config)
-        count++
-        writeFile(result.data, nextPage)
-    } catch (err) {
-        console.log(err, 'error fetch 1st')
+    if(!process.argv[2]) {
+        console.log('please input proper username')
+        return false
+    }
+
+    if(CONTINUE) {
+        fs.readFile(`result_${WHO_TO_FETCH}.json`, 'utf8', (err, data) => {
+            const read = JSON.parse(data)
+            count = Number(read.Status)
+            nextPage({ page: read.next_page, userid: read.userid, username: read.username });
+        })
+    } else {
+        try {
+            const result = await axios.post(url, requestBody, config)
+            fs.writeFile(`result_${WHO_TO_FETCH}.json`, '{}', 'utf8', (err) => {
+                count++
+                writeFile(result.data, nextPage)
+            })
+        } catch (err) {
+            console.log(err, 'error fetch 1st')
+        }
     }
 }
 
